@@ -107,19 +107,9 @@
   <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
     <h1 class="text-2xl font-bold t-text">Memory Explorer</h1>
     <div class="flex items-center gap-3 flex-wrap">
-      <div class="flex items-center gap-1">
-        <select x-model="dbPath" @change="connectDb()"
-          class="t-input rounded px-2 py-1.5 text-xs focus:outline-none cursor-pointer max-w-[350px]">
-          <option :value="dbPath" x-text="dbDisplayPath || dbPath" selected></option>
-          <template x-for="f in availableFiles.filter(f => f.path !== dbPath)" :key="f.path">
-            <option :value="f.path" x-text="f.display"></option>
-          </template>
-        </select>
-        <button @click="loadAvailableFiles()" class="t-muted hover:text-white text-xs px-1" title="Refresh file list">
-          <svg class="w-3.5 h-3.5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
-          </svg>
-        </button>
+      <div class="flex items-center gap-2">
+        <span class="t-muted text-xs font-mono truncate max-w-[300px]" x-text="dbDisplayPath || dbPath"></span>
+        <button @click="openFileBrowser()" class="t-btn text-white rounded px-3 py-1 text-xs">Browse</button>
       </div>
       <span class="t-muted text-sm" x-show="stats.total_chunks !== undefined">
         <span class="t-text" x-text="stats.total_chunks"></span> chunks,
@@ -633,6 +623,54 @@
     </div>
   </div>
 
+  <!-- ==================== FILE BROWSER MODAL ==================== -->
+  <div x-show="fileBrowser" x-transition.opacity
+    class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+    @click.self="fileBrowser = null" @keydown.escape.window="fileBrowser = null">
+    <div class="bg-gray-800 border border-gray-600 rounded-xl shadow-2xl w-full max-w-lg max-h-[70vh] flex flex-col mx-4"
+         @click.stop>
+      <!-- Header -->
+      <div class="flex items-center justify-between px-5 py-3 border-b border-gray-700">
+        <div class="min-w-0">
+          <p class="text-white text-sm font-medium">Select SQLite Database</p>
+          <p class="text-gray-500 text-xs font-mono truncate mt-0.5" x-text="fileBrowser?.display || ''"></p>
+        </div>
+        <button @click="fileBrowser = null" class="text-gray-400 hover:text-white ml-4 shrink-0">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+      <!-- Body -->
+      <div class="flex-1 overflow-y-auto">
+        <div x-show="fileBrowserLoading" class="text-gray-400 text-sm py-8 text-center">Loading...</div>
+        <div x-show="!fileBrowserLoading">
+          <!-- Parent directory -->
+          <div x-show="fileBrowser?.parent"
+            @click="openFileBrowser(fileBrowser.parent)"
+            class="flex items-center gap-3 px-5 py-2.5 hover:bg-gray-700 cursor-pointer border-b border-gray-700/50">
+            <span class="text-gray-400">&#8592;</span>
+            <span class="text-gray-300 text-sm">..</span>
+          </div>
+          <!-- Items -->
+          <template x-for="item in fileBrowser?.items || []" :key="item.path">
+            <div @click="item.type === 'dir' ? openFileBrowser(item.path) : selectDbFile(item.path)"
+              class="flex items-center gap-3 px-5 py-2.5 hover:bg-gray-700 cursor-pointer border-b border-gray-700/50">
+              <!-- Icon -->
+              <span x-show="item.type === 'dir'" class="text-yellow-400 text-sm">&#128193;</span>
+              <span x-show="item.type === 'file'" class="text-blue-400 text-sm">&#128451;</span>
+              <!-- Name -->
+              <span class="text-sm truncate" :class="item.type === 'dir' ? 'text-gray-200' : 'text-blue-300'" x-text="item.name"></span>
+            </div>
+          </template>
+          <!-- Empty -->
+          <div x-show="!fileBrowserLoading && (fileBrowser?.items || []).length === 0"
+            class="text-gray-500 text-sm py-8 text-center">No folders or database files here.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
 </div>
 
 <script>
@@ -644,7 +682,8 @@ function memoryExplorer() {
     stats: {},
     dbPath: '',
     dbDisplayPath: '',
-    availableFiles: [],
+    fileBrowser: null,
+    fileBrowserLoading: false,
     connectError: '',
 
     // Browse
@@ -712,7 +751,6 @@ function memoryExplorer() {
     async init() {
       await this.loadStats();
       await this.loadChunks();
-      await this.loadAvailableFiles();
       // Column resize listeners (bound once)
       this._onColResizeMove = (e) => this.colResizeMove(e);
       this._onColResizeEnd = () => this.colResizeEnd();
@@ -720,14 +758,23 @@ function memoryExplorer() {
       document.addEventListener('mouseup', this._onColResizeEnd);
     },
 
-    async loadAvailableFiles() {
+    async openFileBrowser(dir) {
+      this.fileBrowserLoading = true;
+      if (!dir) this.fileBrowser = {};
       try {
-        const resp = await this.apiFetch('/api/files');
-        const data = await resp.json();
-        this.availableFiles = data.files || [];
+        const resp = await this.apiFetch(`/api/browse?dir=${encodeURIComponent(dir || '/host')}`);
+        this.fileBrowser = await resp.json();
       } catch (e) {
-        console.error('Failed to load files:', e);
+        console.error('Browse failed:', e);
+      } finally {
+        this.fileBrowserLoading = false;
       }
+    },
+
+    async selectDbFile(path) {
+      this.dbPath = path;
+      this.fileBrowser = null;
+      await this.connectDb();
     },
 
     startColResize(e, colIndex) {

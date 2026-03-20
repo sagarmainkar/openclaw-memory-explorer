@@ -493,19 +493,25 @@ async def get_source(path: str = ""):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/api/files")
-async def list_files():
-    files = []
-    if os.path.isdir(DATA_DIR):
-        for root, dirs, filenames in os.walk(DATA_DIR):
-            for f in filenames:
-                if f.endswith((".sqlite", ".sqlite3", ".db")):
-                    container_path = os.path.join(root, f)
-                    files.append({
-                        "path": container_path,
-                        "display": to_host_path(container_path),
-                    })
-    return {"files": sorted(files, key=lambda x: x["display"])}
+@app.get("/api/browse")
+async def browse_directory(dir: str = "/host"):
+    """Browse a directory — return folders and .sqlite/.db files only."""
+    if not os.path.isdir(dir):
+        raise HTTPException(status_code=400, detail=f"Not a directory: {dir}")
+    items = []
+    try:
+        for name in sorted(os.listdir(dir)):
+            if name.startswith(".") and name not in (".openclaw", ".wacli"):
+                continue  # skip hidden dirs except known ones
+            full = os.path.join(dir, name)
+            if os.path.isdir(full):
+                items.append({"name": name, "type": "dir", "path": full, "display": to_host_path(full)})
+            elif name.endswith((".sqlite", ".sqlite3", ".db")):
+                items.append({"name": name, "type": "file", "path": full, "display": to_host_path(full)})
+    except PermissionError:
+        raise HTTPException(status_code=403, detail="Permission denied")
+    parent = os.path.dirname(dir) if dir != "/host" else None
+    return {"items": items, "current": dir, "display": to_host_path(dir), "parent": parent}
 
 
 @app.post("/api/connect")
