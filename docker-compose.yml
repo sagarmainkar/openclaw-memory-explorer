@@ -4,13 +4,14 @@ services:
     container_name: memory-explorer
     network_mode: host
     volumes:
+      - /home/ubuntu:/host:ro
       - /home/ubuntu/.openclaw/memory:/data/memory
       - /home/ubuntu/.openclaw/memory/vec0.so:/data/vec0.so:ro
       - /home/ubuntu/.openclaw/workspace:/workspace
     environment:
       - DB_PATH=/data/memory/main.sqlite
       - VEC_PATH=/data/vec0.so
-      - DATA_DIR=/data
+      - DATA_DIR=/host
       - WORKSPACE_DIR=/workspace
       - GEMINI_API_KEY=${GEMINI_API_KEY}
       - OLLAMA_URL=http://127.0.0.1:11434

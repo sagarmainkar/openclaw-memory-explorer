@@ -27,7 +27,7 @@ OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://host.docker.internal:11434")
 OLLAMA_VISION_MODEL = os.environ.get("OLLAMA_VISION_MODEL", "kimi-k2.5:cloud")
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png"}
 # Map container paths to host paths for display
-HOST_PATH_MAP = os.environ.get("HOST_PATH_MAP", "/data/memory=/home/ubuntu/.openclaw/memory,/workspace=/home/ubuntu/.openclaw/workspace")
+HOST_PATH_MAP = os.environ.get("HOST_PATH_MAP", "/host=/home/ubuntu,/data/memory=/home/ubuntu/.openclaw/memory,/workspace=/home/ubuntu/.openclaw/workspace")
 
 db: MemoryDB | None = None
 embedder: GeminiEmbedder | None = None
@@ -499,9 +499,13 @@ async def list_files():
     if os.path.isdir(DATA_DIR):
         for root, dirs, filenames in os.walk(DATA_DIR):
             for f in filenames:
-                if f.endswith(".sqlite"):
-                    files.append(os.path.join(root, f))
-    return {"files": sorted(files)}
+                if f.endswith((".sqlite", ".sqlite3", ".db")):
+                    container_path = os.path.join(root, f)
+                    files.append({
+                        "path": container_path,
+                        "display": to_host_path(container_path),
+                    })
+    return {"files": sorted(files, key=lambda x: x["display"])}
 
 
 @app.post("/api/connect")

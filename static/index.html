@@ -109,10 +109,10 @@
     <div class="flex items-center gap-3 flex-wrap">
       <div class="flex items-center gap-1">
         <select x-model="dbPath" @change="connectDb()"
-          class="t-input rounded px-2 py-1.5 text-xs focus:outline-none cursor-pointer max-w-[300px]">
+          class="t-input rounded px-2 py-1.5 text-xs focus:outline-none cursor-pointer max-w-[350px]">
           <option :value="dbPath" x-text="dbDisplayPath || dbPath" selected></option>
-          <template x-for="f in availableFiles.filter(f => f !== dbPath)" :key="f">
-            <option :value="f" x-text="f"></option>
+          <template x-for="f in availableFiles.filter(f => f.path !== dbPath)" :key="f.path">
+            <option :value="f.path" x-text="f.display"></option>
           </template>
         </select>
         <button @click="loadAvailableFiles()" class="t-muted hover:text-white text-xs px-1" title="Refresh file list">
