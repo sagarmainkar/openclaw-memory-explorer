@@ -296,7 +296,11 @@ async def upload_file(
                     label = f"[Final part of {total_parts} from: {path}]\n"
                 else:
                     label = f"[Part {i + 1} of {total_parts} from: {path}]\n"
-                c["text"] = label + c["text"]
+                labeled = label + c["text"]
+                # Trim from end if label pushes over limit
+                if len(labeled) > MAX_CHUNK_CHARS:
+                    labeled = labeled[:MAX_CHUNK_CHARS]
+                c["text"] = labeled
                 # Recompute hash and id since text changed
                 c["hash"] = hashlib.sha256(c["text"].encode("utf-8")).hexdigest()
                 id_raw = f"{c['source']}:{c['path']}:{c['start_line']}:{c['end_line']}:{c['hash']}:{c['model']}"
