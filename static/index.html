@@ -105,9 +105,40 @@
                 <!-- Expanded content -->
                 <div x-show="expandedChunk === chunk.id" class="bg-gray-850 border-b border-gray-700 px-4 py-3">
                   <div x-show="expandedChunk === chunk.id && expandedLoading" class="text-gray-400 text-sm">Loading...</div>
-                  <pre x-show="expandedChunk === chunk.id && !expandedLoading"
-                    class="font-mono bg-gray-950 p-4 rounded overflow-x-auto text-sm text-gray-200 whitespace-pre-wrap"
-                    x-text="expandedText"></pre>
+                  <div x-show="expandedChunk === chunk.id && !expandedLoading">
+                    <!-- View mode -->
+                    <div x-show="editingChunk !== chunk.id">
+                      <pre class="font-mono bg-gray-950 p-4 rounded overflow-x-auto text-sm text-gray-200 whitespace-pre-wrap"
+                        x-text="expandedText"></pre>
+                      <div class="mt-2 flex gap-2">
+                        <button @click.stop="startEdit(chunk.id)"
+                          class="text-blue-400 hover:text-blue-300 text-xs px-2 py-1 border border-gray-600 rounded hover:border-blue-500 transition-colors">
+                          Edit
+                        </button>
+                      </div>
+                    </div>
+                    <!-- Edit mode -->
+                    <div x-show="editingChunk === chunk.id" @click.stop>
+                      <textarea x-model="editText" rows="12"
+                        class="w-full bg-gray-950 border border-blue-500 text-gray-200 rounded p-4 focus:outline-none font-mono text-sm resize-y"></textarea>
+                      <p class="text-xs mt-1" :class="editText.length > 1600 ? 'text-red-400' : 'text-gray-500'">
+                        <span x-text="editText.length"></span> / 1600 chars
+                        (<span x-text="Math.floor(editText.length / 4)"></span> / 400 tokens)
+                      </p>
+                      <div class="mt-2 flex gap-2">
+                        <button @click.stop="saveEdit(chunk.id)" :disabled="editSaving || editText.length > 1600 || !editText.trim()"
+                          class="bg-blue-600 hover:bg-blue-700 text-white text-xs px-3 py-1 rounded disabled:opacity-50">
+                          <span x-show="!editSaving">Save</span>
+                          <span x-show="editSaving">Saving & re-embedding...</span>
+                        </button>
+                        <button @click.stop="cancelEdit()"
+                          class="text-gray-400 hover:text-gray-200 text-xs px-2 py-1 border border-gray-600 rounded">
+                          Cancel
+                        </button>
+                      </div>
+                      <div x-show="editError" class="mt-2 text-red-400 text-xs" x-text="editError"></div>
+                    </div>
+                  </div>
                 </div>
               </td>
             </tr>
@@ -391,6 +422,12 @@ function memoryExplorer() {
     sortCol: 'path',
     sortDir: 'asc',
 
+    // Edit
+    editingChunk: null,
+    editText: '',
+    editSaving: false,
+    editError: '',
+
     // Search
     searchQuery: '',
     searchResults: [],
@@ -541,9 +578,49 @@ function memoryExplorer() {
           this.expandedChunk = null;
           this.expandedText = '';
         }
+        this.editingChunk = null;
         await this.loadStats();
       } catch (e) {
         alert('Delete failed: ' + e.message);
+      }
+    },
+
+    // --- Edit ---
+    startEdit(id) {
+      this.editingChunk = id;
+      this.editText = this.expandedText;
+      this.editError = '';
+    },
+
+    cancelEdit() {
+      this.editingChunk = null;
+      this.editText = '';
+      this.editError = '';
+    },
+
+    async saveEdit(id) {
+      this.editSaving = true;
+      this.editError = '';
+      try {
+        const resp = await this.apiFetch(`/api/chunks/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: this.editText }),
+        });
+        const newChunk = await resp.json();
+        // Update local state — old ID replaced with new ID
+        this.expandedText = this.editText;
+        this.editingChunk = null;
+        this.editText = '';
+        // Refresh chunks list (ID changed because text hash changed)
+        await this.loadChunks();
+        // Expand the new chunk
+        this.expandedChunk = newChunk.id;
+        await this.loadStats();
+      } catch (e) {
+        this.editError = e.message;
+      } finally {
+        this.editSaving = false;
       }
     },
 

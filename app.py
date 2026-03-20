@@ -119,6 +119,54 @@ async def delete_chunk(chunk_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.put("/api/chunks/{chunk_id}")
+async def update_chunk(chunk_id: str, request: Request):
+    """Edit a chunk's text: delete old, re-embed, insert new."""
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON body")
+
+    new_text = body.get("text", "")
+    if not new_text.strip():
+        raise HTTPException(status_code=400, detail="'text' is required")
+    if len(new_text) > MAX_CHUNK_CHARS:
+        raise HTTPException(status_code=400, detail=f"Text exceeds {MAX_CHUNK_CHARS} chars")
+
+    # Get old chunk to preserve path/source/lines
+    old = db.get_chunk(chunk_id)
+    if old is None:
+        raise HTTPException(status_code=404, detail="Chunk not found")
+
+    try:
+        # Re-embed the edited text
+        embedding = embedder.embed(new_text)
+
+        # Compute new ID (text changed, so hash changes, so ID changes)
+        text_hash = hashlib.sha256(new_text.encode("utf-8")).hexdigest()
+        new_id_raw = f"{old['source']}:{old['path']}:{old['start_line']}:{old['end_line']}:{text_hash}:{EMBEDDING_MODEL}"
+        new_id = hashlib.sha256(new_id_raw.encode("utf-8")).hexdigest()
+
+        new_chunk = {
+            "id": new_id,
+            "path": old["path"],
+            "source": old["source"],
+            "start_line": old["start_line"],
+            "end_line": old["end_line"],
+            "text": new_text,
+            "hash": text_hash,
+            "model": EMBEDDING_MODEL,
+        }
+
+        # Delete old, insert new
+        db.delete_chunk(chunk_id)
+        db.insert_chunk(new_chunk, embedding)
+
+        return new_chunk
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.get("/api/search")
 async def search(q: str = ""):
     if not q.strip():
