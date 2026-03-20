@@ -288,6 +288,20 @@ async def upload_file(
 
         chunks = chunk_text(text, path)
 
+        # Add part labels so the agent knows chunks are related
+        total_parts = len(chunks)
+        if total_parts > 1:
+            for i, c in enumerate(chunks):
+                if i == total_parts - 1:
+                    label = f"[Final part of {total_parts} from: {path}]\n"
+                else:
+                    label = f"[Part {i + 1} of {total_parts} from: {path}]\n"
+                c["text"] = label + c["text"]
+                # Recompute hash and id since text changed
+                c["hash"] = hashlib.sha256(c["text"].encode("utf-8")).hexdigest()
+                id_raw = f"{c['source']}:{c['path']}:{c['start_line']}:{c['end_line']}:{c['hash']}:{c['model']}"
+                c["id"] = hashlib.sha256(id_raw.encode("utf-8")).hexdigest()
+
         total_tokens = 0
         chunk_summaries = []
         for i, c in enumerate(chunks):
