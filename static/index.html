@@ -135,9 +135,8 @@
             <tr>
               <!-- Main row -->
               <td colspan="6" class="p-0">
-                <div class="flex items-center border-b border-gray-700 hover:bg-gray-800 cursor-pointer transition-colors"
-                     @click="toggleExpand(chunk.id)">
-                  <div class="px-2 py-2 shrink-0 text-center" style="width:32px;" @click.stop>
+                <div class="flex items-center border-b border-gray-700 hover:bg-gray-800 transition-colors">
+                  <div class="px-2 py-2 shrink-0 text-center" style="width:32px;">
                     <input type="checkbox" :value="chunk.id"
                       x-model="selectedChunks"
                       class="rounded border-gray-600 bg-gray-700 text-blue-500 focus:ring-blue-500 cursor-pointer" />
@@ -147,55 +146,14 @@
                   <div class="px-3 py-2 shrink-0 text-gray-300 truncate overflow-hidden" :style="'width:' + colWidths[2] + 'px'" x-text="chunk.preview.substring(0, 200)"></div>
                   <div class="px-3 py-2 shrink-0 text-gray-400 text-right whitespace-nowrap" :style="'width:' + colWidths[3] + 'px'" x-text="chunk.char_count + 'c'"></div>
                   <div class="px-3 py-2 shrink-0 text-gray-500 text-right whitespace-nowrap" :style="'width:' + colWidths[4] + 'px'" x-text="relativeTime(chunk.updated_at)"></div>
-                  <div class="px-3 py-2 shrink-0 text-center" style="width:40px;">
-                    <button @click.stop="deleteChunk(chunk.id)"
-                      class="text-gray-500 hover:text-red-400 transition-colors" title="Delete chunk">
+                  <div class="px-2 py-2 shrink-0 text-center flex gap-1" style="width:40px;">
+                    <button @click.stop="openChunkModal(chunk.id)"
+                      class="text-gray-500 hover:text-blue-400 transition-colors" title="Open chunk">
                       <svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
                       </svg>
                     </button>
-                  </div>
-                </div>
-                <!-- Expanded content -->
-                <div x-show="expandedChunk === chunk.id" class="bg-gray-850 border-b border-gray-700 px-4 py-3">
-                  <div x-show="expandedChunk === chunk.id && expandedLoading" class="text-gray-400 text-sm">Loading...</div>
-                  <div x-show="expandedChunk === chunk.id && !expandedLoading">
-                    <!-- View mode -->
-                    <div x-show="editingChunk !== chunk.id">
-                      <pre class="font-mono bg-gray-950 p-4 rounded overflow-x-auto text-sm text-gray-200 whitespace-pre-wrap"
-                        x-text="expandedText"></pre>
-                      <div class="mt-2 flex gap-2">
-                        <button @click.stop="startEdit(chunk.id)"
-                          class="text-blue-400 hover:text-blue-300 text-xs px-2 py-1 border border-gray-600 rounded hover:border-blue-500 transition-colors">
-                          Edit
-                        </button>
-                        <button @click.stop="deleteChunkWithSource(chunk.id)"
-                          class="text-red-400 hover:text-red-300 text-xs px-2 py-1 border border-gray-600 rounded hover:border-red-500 transition-colors">
-                          Delete with source file
-                        </button>
-                      </div>
-                    </div>
-                    <!-- Edit mode -->
-                    <div x-show="editingChunk === chunk.id" @click.stop>
-                      <textarea x-model="editText" rows="12"
-                        class="w-full bg-gray-950 border border-blue-500 text-gray-200 rounded p-4 focus:outline-none font-mono text-sm resize-y"></textarea>
-                      <p class="text-xs mt-1" :class="editText.length > 1600 ? 'text-red-400' : 'text-gray-500'">
-                        <span x-text="editText.length"></span> / 1600 chars
-                        (<span x-text="Math.floor(editText.length / 4)"></span> / 400 tokens)
-                      </p>
-                      <div class="mt-2 flex gap-2">
-                        <button @click.stop="saveEdit(chunk.id)" :disabled="editSaving || editText.length > 1600 || !editText.trim()"
-                          class="bg-blue-600 hover:bg-blue-700 text-white text-xs px-3 py-1 rounded disabled:opacity-50">
-                          <span x-show="!editSaving">Save</span>
-                          <span x-show="editSaving">Saving & re-embedding...</span>
-                        </button>
-                        <button @click.stop="cancelEdit()"
-                          class="text-gray-400 hover:text-gray-200 text-xs px-2 py-1 border border-gray-600 rounded">
-                          Cancel
-                        </button>
-                      </div>
-                      <div x-show="editError" class="mt-2 text-red-400 text-xs" x-text="editError"></div>
-                    </div>
                   </div>
                 </div>
               </td>
@@ -467,6 +425,91 @@
     </div>
   </div>
 
+  <!-- ==================== CHUNK MODAL ==================== -->
+  <div x-show="modalChunk" x-transition.opacity
+    class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+    @click.self="closeModal()" @keydown.escape.window="closeModal()">
+    <div class="bg-gray-800 border border-gray-600 rounded-xl shadow-2xl w-full max-w-3xl max-h-[85vh] flex flex-col mx-4"
+         @click.stop>
+      <!-- Modal header -->
+      <div class="flex items-center justify-between px-5 py-4 border-b border-gray-700">
+        <div class="min-w-0">
+          <p class="text-blue-400 font-mono text-sm truncate" x-text="modalChunk?.path"></p>
+          <p class="text-gray-500 text-xs mt-0.5">
+            Lines <span x-text="modalChunk?.start_line"></span>-<span x-text="modalChunk?.end_line"></span>
+            &middot; <span x-text="modalChunk?.char_count || expandedText.length"></span> chars
+            &middot; <span x-text="relativeTime(modalChunk?.updated_at)"></span>
+          </p>
+        </div>
+        <button @click="closeModal()" class="text-gray-400 hover:text-white ml-4 shrink-0">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Modal body -->
+      <div class="flex-1 overflow-y-auto px-5 py-4">
+        <div x-show="expandedLoading" class="text-gray-400 text-sm py-8 text-center">Loading...</div>
+
+        <!-- View mode -->
+        <div x-show="!expandedLoading && editingChunk !== modalChunk?.id">
+          <pre class="font-mono bg-gray-950 p-4 rounded text-sm text-gray-200 whitespace-pre-wrap break-words"
+            x-text="expandedText"></pre>
+        </div>
+
+        <!-- Edit mode -->
+        <div x-show="!expandedLoading && editingChunk === modalChunk?.id">
+          <textarea x-model="editText" rows="16"
+            class="w-full bg-gray-950 border border-blue-500 text-gray-200 rounded p-4 focus:outline-none font-mono text-sm resize-y"></textarea>
+          <p class="text-xs mt-1" :class="editText.length > 1600 ? 'text-red-400' : 'text-gray-500'">
+            <span x-text="editText.length"></span> / 1600 chars
+            (<span x-text="Math.floor(editText.length / 4)"></span> / 400 tokens)
+          </p>
+          <div x-show="editError" class="mt-2 text-red-400 text-xs" x-text="editError"></div>
+        </div>
+      </div>
+
+      <!-- Modal footer -->
+      <div class="flex items-center justify-between px-5 py-3 border-t border-gray-700">
+        <div class="flex gap-2">
+          <!-- View mode buttons -->
+          <template x-if="editingChunk !== modalChunk?.id">
+            <div class="flex gap-2">
+              <button @click="startEdit(modalChunk?.id)"
+                class="bg-blue-600 hover:bg-blue-700 text-white text-xs px-3 py-1.5 rounded">
+                Edit
+              </button>
+              <button @click="deleteChunk(modalChunk?.id); closeModal()"
+                class="text-red-400 hover:text-red-300 text-xs px-3 py-1.5 border border-gray-600 rounded hover:border-red-500">
+                Delete chunk
+              </button>
+              <button @click="deleteChunkWithSource(modalChunk?.id); closeModal()"
+                class="text-red-400 hover:text-red-300 text-xs px-3 py-1.5 border border-gray-600 rounded hover:border-red-500">
+                Delete + source file
+              </button>
+            </div>
+          </template>
+          <!-- Edit mode buttons -->
+          <template x-if="editingChunk === modalChunk?.id">
+            <div class="flex gap-2">
+              <button @click="saveEditModal()" :disabled="editSaving || editText.length > 1600 || !editText.trim()"
+                class="bg-blue-600 hover:bg-blue-700 text-white text-xs px-3 py-1.5 rounded disabled:opacity-50">
+                <span x-show="!editSaving">Save & re-embed</span>
+                <span x-show="editSaving">Saving...</span>
+              </button>
+              <button @click="cancelEdit()"
+                class="text-gray-400 hover:text-gray-200 text-xs px-3 py-1.5 border border-gray-600 rounded">
+                Cancel
+              </button>
+            </div>
+          </template>
+        </div>
+        <button @click="closeModal()" class="text-gray-400 hover:text-gray-200 text-xs px-3 py-1.5">Close</button>
+      </div>
+    </div>
+  </div>
+
 </div>
 
 <script>
@@ -500,6 +543,9 @@ function memoryExplorer() {
     bulkTag: '',
     bulkTagging: false,
     bulkTagProgress: 0,
+
+    // Modal
+    modalChunk: null,
 
     // Edit
     editingChunk: null,
@@ -652,23 +698,55 @@ function memoryExplorer() {
       }
     },
 
-    async toggleExpand(id) {
-      if (this.expandedChunk === id) {
-        this.expandedChunk = null;
-        this.expandedText = '';
-        return;
-      }
-      this.expandedChunk = id;
+    async openChunkModal(id) {
+      const chunk = this.chunks.find(c => c.id === id);
+      this.modalChunk = chunk || { id };
       this.expandedText = '';
       this.expandedLoading = true;
+      this.editingChunk = null;
+      this.editError = '';
       try {
         const resp = await this.apiFetch(`/api/chunks/${id}`);
         const data = await resp.json();
         this.expandedText = data.text;
+        this.modalChunk = { ...this.modalChunk, ...data };
       } catch (e) {
         this.expandedText = 'Error loading chunk: ' + e.message;
       } finally {
         this.expandedLoading = false;
+      }
+    },
+
+    closeModal() {
+      this.modalChunk = null;
+      this.expandedText = '';
+      this.editingChunk = null;
+      this.editText = '';
+      this.editError = '';
+    },
+
+    async saveEditModal() {
+      if (!this.modalChunk) return;
+      this.editSaving = true;
+      this.editError = '';
+      try {
+        const resp = await this.apiFetch(`/api/chunks/${this.modalChunk.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: this.editText }),
+        });
+        const newChunk = await resp.json();
+        this.expandedText = this.editText;
+        this.editingChunk = null;
+        this.editText = '';
+        await this.loadChunks();
+        // Update modal to point to new chunk
+        this.modalChunk = { ...this.modalChunk, ...newChunk, char_count: this.expandedText.length };
+        await this.loadStats();
+      } catch (e) {
+        this.editError = e.message;
+      } finally {
+        this.editSaving = false;
       }
     },
 
@@ -742,29 +820,7 @@ function memoryExplorer() {
     },
 
     async saveEdit(id) {
-      this.editSaving = true;
-      this.editError = '';
-      try {
-        const resp = await this.apiFetch(`/api/chunks/${id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text: this.editText }),
-        });
-        const newChunk = await resp.json();
-        // Update local state — old ID replaced with new ID
-        this.expandedText = this.editText;
-        this.editingChunk = null;
-        this.editText = '';
-        // Refresh chunks list (ID changed because text hash changed)
-        await this.loadChunks();
-        // Expand the new chunk
-        this.expandedChunk = newChunk.id;
-        await this.loadStats();
-      } catch (e) {
-        this.editError = e.message;
-      } finally {
-        this.editSaving = false;
-      }
+      return this.saveEditModal();
     },
 
     // --- Bulk Tag ---
