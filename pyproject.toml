@@ -1,0 +1,13 @@
+[project]
+name = "memory-explorer"
+version = "0.1.0"
+description = "Web UI to browse, search, and manage OpenClaw memory SQLite databases"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.30.0",
+    "httpx>=0.27.0",
+    "pymupdf>=1.25.0",
+    "python-multipart>=0.0.9",
+    "sse-starlette>=2.0.0",
+]
