@@ -72,6 +72,15 @@
               <span x-show="!bulkTagging">Apply Tag</span>
               <span x-show="bulkTagging" x-text="'Tagging ' + bulkTagProgress + '/' + selectedChunks.length + '...'"></span>
             </button>
+            <span class="text-gray-600">|</span>
+            <button @click="bulkDelete(false)"
+              class="text-red-400 hover:text-red-300 text-xs px-2 py-1 border border-gray-600 rounded hover:border-red-500">
+              Delete
+            </button>
+            <button @click="bulkDelete(true)"
+              class="text-red-400 hover:text-red-300 text-xs px-2 py-1 border border-gray-600 rounded hover:border-red-500">
+              Delete + source files
+            </button>
             <button @click="selectedChunks = []" class="text-gray-400 hover:text-gray-200 text-xs">Clear</button>
           </div>
         </template>
@@ -732,6 +741,62 @@ function memoryExplorer() {
       this.bulkTagging = false;
       this.bulkTag = '';
       this.selectedChunks = [];
+      await this.loadChunks();
+      await this.loadStats();
+    },
+
+    // --- Bulk Delete ---
+    async bulkDelete(withSource) {
+      const ids = [...this.selectedChunks];
+      if (ids.length === 0) return;
+
+      // Collect affected source files if deleting with source
+      let sourcePaths = [];
+      if (withSource) {
+        const pathSet = new Set();
+        for (const id of ids) {
+          const chunk = this.chunks.find(c => c.id === id);
+          if (chunk) pathSet.add(chunk.path);
+        }
+        sourcePaths = [...pathSet];
+        const siblingCount = this.chunks.filter(c => sourcePaths.includes(c.path)).length;
+        if (!confirm(
+          `DELETE ${sourcePaths.length} SOURCE FILE(S) + ALL THEIR CHUNKS\n\n` +
+          `Files:\n${sourcePaths.map(p => '  ' + p).join('\n')}\n\n` +
+          `Total chunks to delete: ${siblingCount}\n\n` +
+          `This permanently removes files from disk. Cannot be undone.`
+        )) return;
+      } else {
+        if (!confirm(`Delete ${ids.length} selected chunk(s) from DB?\n\nSource files will NOT be deleted.`)) return;
+      }
+
+      if (withSource) {
+        // Delete one chunk per source path with delete_source=true — this removes all siblings + file
+        const done = new Set();
+        for (const id of ids) {
+          const chunk = this.chunks.find(c => c.id === id);
+          if (!chunk || done.has(chunk.path)) continue;
+          done.add(chunk.path);
+          try {
+            await this.apiFetch(`/api/chunks/${id}?delete_source=true`, { method: 'DELETE' });
+          } catch (e) {
+            console.error(`Failed to delete source for ${chunk.path}:`, e);
+          }
+        }
+      } else {
+        for (const id of ids) {
+          try {
+            await this.apiFetch(`/api/chunks/${id}`, { method: 'DELETE' });
+          } catch (e) {
+            console.error(`Failed to delete chunk ${id}:`, e);
+          }
+        }
+      }
+
+      this.selectedChunks = [];
+      this.expandedChunk = null;
+      this.expandedText = '';
+      this.editingChunk = null;
       await this.loadChunks();
       await this.loadStats();
     },
