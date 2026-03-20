@@ -21,22 +21,23 @@
   </script>
   <style>
     [x-cloak] { display: none !important; }
+    .resizable {
+      position: relative !important;
+      overflow: visible !important;
+    }
     .col-resize-handle {
       position: absolute;
-      right: 0;
+      right: -3px;
       top: 0;
       bottom: 0;
-      width: 4px;
+      width: 7px;
       cursor: col-resize;
       background: transparent;
-      z-index: 20;
+      z-index: 30;
     }
     .col-resize-handle:hover,
     .col-resize-handle.dragging {
       background: #3b82f6;
-    }
-    th.resizable {
-      position: relative;
     }
   </style>
 </head>
@@ -115,8 +116,8 @@
               <div class="flex items-center text-left">
                 <div class="px-2 py-2 shrink-0" style="width:32px;"></div>
                 <template x-for="(col, ci) in colDefs" :key="col.key">
-                  <div class="px-3 py-2 text-gray-400 font-medium cursor-pointer select-none hover:text-gray-200 resizable shrink-0"
-                      :style="'width:' + colWidths[ci] + 'px; min-width: 40px;'"
+                  <div class="px-3 py-2 text-gray-400 font-medium cursor-pointer select-none hover:text-gray-200 resizable shrink-0 truncate"
+                      :style="'width:' + colWidths[ci] + 'px; min-width: 40px; position: relative; overflow: visible;'"
                       @click="toggleSort(col.key)">
                     <span x-text="col.label"></span>
                     <span x-show="sortCol === col.key && sortDir === 'asc'" class="ml-1">&#9650;</span>
