@@ -313,18 +313,29 @@ async def upload_file(
         filename = file.filename or "unknown"
         ext = os.path.splitext(filename)[1].lower()
 
+        path = path_prefix if path_prefix else f"memory/{filename}"
+        workspace_dir = os.environ.get("WORKSPACE_DIR", "/home/ubuntu/.openclaw/workspace")
+
         if ext in IMAGE_EXTENSIONS:
             text = image_to_text(file_bytes)
+            # Save original image to workspace so source link works later
+            save_path = os.path.join(workspace_dir, path)
+            os.makedirs(os.path.dirname(save_path), exist_ok=True)
+            with open(save_path, "wb") as f:
+                f.write(file_bytes)
         elif ext == ".pdf":
             import pymupdf
             doc = pymupdf.open(stream=file_bytes, filetype="pdf")
             text = "\n".join(page.get_text() for page in doc)
+            # Save original PDF too
+            save_path = os.path.join(workspace_dir, path)
+            os.makedirs(os.path.dirname(save_path), exist_ok=True)
+            with open(save_path, "wb") as f:
+                f.write(file_bytes)
         elif ext in (".md", ".txt", ".markdown"):
             text = file_bytes.decode("utf-8")
         else:
             text = file_bytes.decode("utf-8")
-
-        path = path_prefix if path_prefix else f"memory/{filename}"
 
         chunks = chunk_text(text, path)
 
