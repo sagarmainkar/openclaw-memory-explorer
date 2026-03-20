@@ -87,6 +87,25 @@ GEMINI_API_KEY=your-key \
 uv run uvicorn app:app --host 0.0.0.0 --port 12089 --reload
 ```
 
+## Screenshots
+
+### Browse — All Memory Chunks
+<img src="https://raw.githubusercontent.com/sagarmainkar/openclaw-memory-explorer/main/static/screenshots/browse.png" width="100%" alt="Browse tab">
+
+### Search — Hybrid Vector + Keyword with Confidence Scores
+<img src="https://raw.githubusercontent.com/sagarmainkar/openclaw-memory-explorer/main/static/screenshots/search.png" width="100%" alt="Search tab">
+
+### Chunk Detail — View, Edit, Delete
+<img src="https://raw.githubusercontent.com/sagarmainkar/openclaw-memory-explorer/main/static/screenshots/modal.png" width="100%" alt="Chunk modal">
+
+### Create & Upload
+<div>
+<img src="https://raw.githubusercontent.com/sagarmainkar/openclaw-memory-explorer/main/static/screenshots/create.png" width="49%" alt="Create tab">
+<img src="https://raw.githubusercontent.com/sagarmainkar/openclaw-memory-explorer/main/static/screenshots/upload.png" width="49%" alt="Upload tab">
+</div>
+
+---
+
 ## How It Works
 
 ### Search — Replicating OpenClaw Exactly
