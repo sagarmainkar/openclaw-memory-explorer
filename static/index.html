@@ -191,9 +191,11 @@
                 :style="'width: ' + Math.min(100, result.score * 100) + '%'"></div>
             </div>
 
-            <!-- Score breakdown -->
+            <!-- Score breakdown + timestamp -->
             <div class="flex items-center justify-between text-xs text-gray-500 mb-2">
-              <span>vec: <span x-text="result.vec_score.toFixed(2)"></span> | fts: <span x-text="result.fts_score.toFixed(2)"></span> | combined: <span x-text="result.score.toFixed(2)"></span></span>
+              <span>vec: <span x-text="result.vec_score.toFixed(2)"></span> | fts: <span x-text="result.fts_score.toFixed(2)"></span> | combined: <span x-text="result.score.toFixed(2)"></span>
+                <span class="ml-2 text-gray-600" x-show="result.updated_at" x-text="'| updated ' + relativeTime(result.updated_at)"></span>
+              </span>
               <span :class="result.score >= 0.35 ? 'text-green-500' : 'text-red-400'"
                 x-text="result.score >= 0.35 ? 'OpenClaw would return this' : 'Below threshold \u2014 OpenClaw would discard'"></span>
             </div>
@@ -261,7 +263,7 @@
       <div x-show="uploadStep === 'select'" class="space-y-4">
         <div>
           <label class="block text-gray-400 text-sm mb-1">File</label>
-          <input type="file" accept=".md,.pdf" x-ref="fileInput"
+          <input type="file" accept=".md,.pdf,.jpg,.jpeg,.png" x-ref="fileInput"
             class="text-gray-300 text-sm file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-700" />
         </div>
 

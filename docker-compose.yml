@@ -2,8 +2,7 @@ services:
   memory-explorer:
     build: .
     container_name: memory-explorer
-    ports:
-      - "12089:12089"
+    network_mode: host
     volumes:
       - /home/ubuntu/.openclaw/memory:/data/memory
       - /home/ubuntu/.openclaw/memory/vec0.so:/data/vec0.so:ro
@@ -12,4 +11,6 @@ services:
       - VEC_PATH=/data/vec0.so
       - DATA_DIR=/data
       - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - OLLAMA_URL=http://127.0.0.1:11434
+      - OLLAMA_VISION_MODEL=kimi-k2.5:cloud
     restart: unless-stopped

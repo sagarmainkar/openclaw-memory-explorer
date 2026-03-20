@@ -10,6 +10,9 @@ import time
 import asyncio
 import sqlite3
 
+import base64
+import httpx
+
 from db import MemoryDB
 from embeddings import GeminiEmbedder
 from chunker import chunk_text, estimate_tokens, MAX_CHUNK_CHARS
@@ -20,6 +23,9 @@ VEC_PATH = os.environ.get("VEC_PATH", "/data/vec0.so")
 DATA_DIR = os.environ.get("DATA_DIR", "/data")
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 EMBEDDING_MODEL = "gemini-embedding-001"
+OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://host.docker.internal:11434")
+OLLAMA_VISION_MODEL = os.environ.get("OLLAMA_VISION_MODEL", "kimi-k2.5:cloud")
+IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png"}
 
 db: MemoryDB | None = None
 embedder: GeminiEmbedder | None = None
@@ -182,6 +188,33 @@ async def create_chunk(request: Request):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+def image_to_text(image_bytes: bytes) -> str:
+    """Send image to Ollama kimi-k2.5:cloud for text extraction and description."""
+    b64 = base64.b64encode(image_bytes).decode("utf-8")
+    with httpx.Client(timeout=120.0) as client:
+        resp = client.post(
+            f"{OLLAMA_URL}/api/chat",
+            json={
+                "model": OLLAMA_VISION_MODEL,
+                "stream": False,
+                "messages": [{
+                    "role": "user",
+                    "content": (
+                        "Extract ALL text from this image verbatim. "
+                        "Then describe the key information, structure, and context. "
+                        "If it's a screenshot, capture UI elements and layout. "
+                        "If it's a document, preserve headings and structure. "
+                        "If it's a photo, describe what's visible and any text/signs. "
+                        "Be thorough — this will be stored as searchable memory."
+                    ),
+                    "images": [b64],
+                }],
+            },
+        )
+        resp.raise_for_status()
+        return resp.json()["message"]["content"]
+
+
 @app.post("/api/upload")
 async def upload_file(
     file: UploadFile = File(...),
@@ -192,7 +225,9 @@ async def upload_file(
         filename = file.filename or "unknown"
         ext = os.path.splitext(filename)[1].lower()
 
-        if ext == ".pdf":
+        if ext in IMAGE_EXTENSIONS:
+            text = image_to_text(file_bytes)
+        elif ext == ".pdf":
             import pymupdf
             doc = pymupdf.open(stream=file_bytes, filetype="pdf")
             text = "\n".join(page.get_text() for page in doc)
