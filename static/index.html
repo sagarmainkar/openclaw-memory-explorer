@@ -110,19 +110,23 @@
       <div class="overflow-y-auto" style="max-height: calc(100vh - 220px);">
       <table class="w-full border-collapse text-sm">
         <thead class="sticky top-0 bg-gray-800 z-10">
-          <tr class="border-b border-gray-700 text-left">
-            <th class="px-2 py-2 bg-gray-800" style="width: 32px;"></th>
-            <template x-for="(col, ci) in colDefs" :key="col.key">
-              <th class="px-3 py-2 text-gray-400 font-medium cursor-pointer select-none hover:text-gray-200 resizable bg-gray-800"
-                  :style="'width:' + colWidths[ci] + 'px; min-width: 40px;'"
-                  @click="toggleSort(col.key)">
-                <span x-text="col.label"></span>
-                <span x-show="sortCol === col.key && sortDir === 'asc'" class="ml-1">&#9650;</span>
-                <span x-show="sortCol === col.key && sortDir === 'desc'" class="ml-1">&#9660;</span>
-                <div class="col-resize-handle" @mousedown.stop.prevent="startColResize($event, ci)"></div>
-              </th>
-            </template>
-            <th class="px-3 py-2 bg-gray-800" style="width: 40px;"></th>
+          <tr class="border-b border-gray-700">
+            <th class="p-0">
+              <div class="flex items-center text-left">
+                <div class="px-2 py-2 shrink-0" style="width:32px;"></div>
+                <template x-for="(col, ci) in colDefs" :key="col.key">
+                  <div class="px-3 py-2 text-gray-400 font-medium cursor-pointer select-none hover:text-gray-200 resizable shrink-0"
+                      :style="'width:' + colWidths[ci] + 'px; min-width: 40px;'"
+                      @click="toggleSort(col.key)">
+                    <span x-text="col.label"></span>
+                    <span x-show="sortCol === col.key && sortDir === 'asc'" class="ml-1">&#9650;</span>
+                    <span x-show="sortCol === col.key && sortDir === 'desc'" class="ml-1">&#9660;</span>
+                    <div class="col-resize-handle" @mousedown.stop.prevent="startColResize($event, ci)"></div>
+                  </div>
+                </template>
+                <div class="px-3 py-2 shrink-0" style="width:40px;"></div>
+              </div>
+            </th>
           </tr>
         </thead>
         <tbody>
