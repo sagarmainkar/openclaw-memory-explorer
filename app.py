@@ -26,6 +26,8 @@ EMBEDDING_MODEL = "gemini-embedding-001"
 OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://host.docker.internal:11434")
 OLLAMA_VISION_MODEL = os.environ.get("OLLAMA_VISION_MODEL", "kimi-k2.5:cloud")
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png"}
+# Map container paths to host paths for display
+HOST_PATH_MAP = os.environ.get("HOST_PATH_MAP", "/data/memory=/home/ubuntu/.openclaw/memory,/workspace=/home/ubuntu/.openclaw/workspace")
 
 db: MemoryDB | None = None
 embedder: GeminiEmbedder | None = None
@@ -66,11 +68,23 @@ app.mount("/static", StaticFiles(directory=os.path.join(os.path.dirname(__file__
 
 # --- API Routes ---
 
+def to_host_path(container_path: str) -> str:
+    """Map container path to host path for display."""
+    for mapping in HOST_PATH_MAP.split(","):
+        if "=" not in mapping:
+            continue
+        container_prefix, host_prefix = mapping.strip().split("=", 1)
+        if container_path.startswith(container_prefix):
+            return host_prefix + container_path[len(container_prefix):]
+    return container_path
+
+
 @app.get("/api/stats")
 async def get_stats():
     try:
         stats = db.get_stats()
         stats["db_path"] = DB_PATH
+        stats["display_path"] = to_host_path(DB_PATH)
         return stats
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

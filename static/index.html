@@ -37,25 +37,71 @@
     }
     .col-resize-handle:hover,
     .col-resize-handle.dragging {
-      background: #3b82f6;
+      background: var(--accent);
     }
+    :root {
+      --bg-body: #111827; --bg-card: #1f2937; --bg-input: #374151; --bg-code: #0d1117;
+      --border: #374151; --text-primary: #f3f4f6; --text-secondary: #9ca3af; --text-muted: #6b7280;
+      --accent: #3b82f6; --accent-hover: #2563eb;
+    }
+    .theme-midnight {
+      --bg-body: #0f172a; --bg-card: #1e293b; --bg-input: #334155; --bg-code: #020617;
+      --border: #334155; --text-primary: #e2e8f0; --text-secondary: #94a3b8; --text-muted: #64748b;
+      --accent: #6366f1; --accent-hover: #4f46e5;
+    }
+    .theme-forest {
+      --bg-body: #0c1a0f; --bg-card: #14261a; --bg-input: #1e3a26; --bg-code: #060d08;
+      --border: #1e3a26; --text-primary: #d1fae5; --text-secondary: #6ee7b7; --text-muted: #34d399;
+      --accent: #10b981; --accent-hover: #059669;
+    }
+    .theme-ember {
+      --bg-body: #1a0c0c; --bg-card: #261414; --bg-input: #3a1e1e; --bg-code: #0d0606;
+      --border: #3a1e1e; --text-primary: #fce4ec; --text-secondary: #f48fb1; --text-muted: #e91e63;
+      --accent: #f43f5e; --accent-hover: #e11d48;
+    }
+    .theme-light {
+      --bg-body: #f8fafc; --bg-card: #ffffff; --bg-input: #f1f5f9; --bg-code: #f8fafc;
+      --border: #e2e8f0; --text-primary: #1e293b; --text-secondary: #475569; --text-muted: #94a3b8;
+      --accent: #3b82f6; --accent-hover: #2563eb;
+    }
+    body.themed {
+      background-color: var(--bg-body) !important;
+      color: var(--text-primary) !important;
+    }
+    body.themed .t-card { background-color: var(--bg-card) !important; }
+    body.themed .t-input { background-color: var(--bg-input) !important; border-color: var(--border) !important; color: var(--text-primary) !important; }
+    body.themed .t-code { background-color: var(--bg-code) !important; color: var(--text-primary) !important; }
+    body.themed .t-border { border-color: var(--border) !important; }
+    body.themed .t-text { color: var(--text-primary) !important; }
+    body.themed .t-muted { color: var(--text-secondary) !important; }
+    body.themed .t-dim { color: var(--text-muted) !important; }
+    body.themed .t-accent { color: var(--accent) !important; }
+    body.themed .t-btn { background-color: var(--accent) !important; }
+    body.themed .t-btn:hover { background-color: var(--accent-hover) !important; }
   </style>
 </head>
-<body class="bg-gray-900 text-gray-100 min-h-screen">
+<body class="bg-gray-900 text-gray-100 min-h-screen themed" :class="theme ? 'theme-' + theme : ''">
 
 <div x-data="memoryExplorer()" x-init="init()" x-cloak class="max-w-7xl mx-auto px-4 py-6">
 
   <!-- Header -->
   <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
-    <h1 class="text-2xl font-bold text-white">Memory Explorer</h1>
+    <h1 class="text-2xl font-bold t-text">Memory Explorer</h1>
     <div class="flex items-center gap-3 flex-wrap">
-      <input type="text" x-model="dbPath" placeholder="SQLite path"
-        class="bg-gray-700 border border-gray-600 text-gray-100 rounded px-3 py-2 focus:border-blue-500 focus:outline-none text-sm w-64" />
-      <button @click="connectDb()" class="bg-blue-600 hover:bg-blue-700 text-white rounded px-4 py-2 text-sm">Connect</button>
-      <span class="text-gray-400 text-sm" x-show="stats.total_chunks !== undefined">
-        Stats: <span class="text-gray-200" x-text="stats.total_chunks"></span> chunks,
-        <span class="text-gray-200" x-text="stats.total_files"></span> files
+      <span class="t-muted text-xs font-mono" x-text="dbDisplayPath || dbPath" title="Database path on host"></span>
+      <span class="t-muted text-sm" x-show="stats.total_chunks !== undefined">
+        &middot; <span class="t-text" x-text="stats.total_chunks"></span> chunks,
+        <span class="t-text" x-text="stats.total_files"></span> files
       </span>
+      <!-- Theme selector -->
+      <select x-model="theme" @change="localStorage.setItem('me-theme', theme)"
+        class="t-input rounded px-2 py-1 text-xs focus:outline-none cursor-pointer">
+        <option value="">Dark (default)</option>
+        <option value="midnight">Midnight</option>
+        <option value="forest">Forest</option>
+        <option value="ember">Ember</option>
+        <option value="light">Light</option>
+      </select>
     </div>
   </div>
 
@@ -517,8 +563,10 @@ function memoryExplorer() {
   return {
     // General
     tab: 'browse',
+    theme: localStorage.getItem('me-theme') || '',
     stats: {},
     dbPath: '',
+    dbDisplayPath: '',
     connectError: '',
 
     // Browse
@@ -623,7 +671,10 @@ function memoryExplorer() {
       try {
         const resp = await this.apiFetch('/api/stats');
         this.stats = await resp.json();
-        if (this.stats.db_path) {
+        if (this.stats.display_path) {
+          this.dbDisplayPath = this.stats.display_path;
+        }
+        if (this.stats.db_path && !this.dbPath) {
           this.dbPath = this.stats.db_path;
         }
       } catch (e) {
