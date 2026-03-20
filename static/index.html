@@ -136,6 +136,10 @@
                           class="text-blue-400 hover:text-blue-300 text-xs px-2 py-1 border border-gray-600 rounded hover:border-blue-500 transition-colors">
                           Edit
                         </button>
+                        <button @click.stop="deleteChunkWithSource(chunk.id)"
+                          class="text-red-400 hover:text-red-300 text-xs px-2 py-1 border border-gray-600 rounded hover:border-red-500 transition-colors">
+                          Delete with source file
+                        </button>
                       </div>
                     </div>
                     <!-- Edit mode -->
@@ -604,7 +608,19 @@ function memoryExplorer() {
     },
 
     async deleteChunk(id) {
-      if (!confirm('Delete this chunk? This cannot be undone.')) return;
+      const chunk = this.chunks.find(c => c.id === id);
+      const path = chunk ? chunk.path : '';
+      const siblings = chunk ? this.chunks.filter(c => c.path === path).length : 0;
+
+      const choice = confirm(
+        `Delete this chunk?\n\n` +
+        `Source: ${path}\n` +
+        (siblings > 1 ? `(${siblings} chunks share this source file)\n\n` : '\n') +
+        `OK = Delete chunk only (from DB)\n` +
+        `\nTo also delete the source file and all its chunks, use the "Delete with source" button in the expanded view.`
+      );
+      if (!choice) return;
+
       try {
         await this.apiFetch(`/api/chunks/${id}`, { method: 'DELETE' });
         this.chunks = this.chunks.filter(c => c.id !== id);
@@ -613,6 +629,34 @@ function memoryExplorer() {
           this.expandedText = '';
         }
         this.editingChunk = null;
+        await this.loadStats();
+      } catch (e) {
+        alert('Delete failed: ' + e.message);
+      }
+    },
+
+    async deleteChunkWithSource(id) {
+      const chunk = this.chunks.find(c => c.id === id);
+      const path = chunk ? chunk.path : '';
+      const siblings = this.chunks.filter(c => c.path === path).length;
+
+      if (!confirm(
+        `DELETE SOURCE FILE + ALL CHUNKS\n\n` +
+        `File: ${path}\n` +
+        `Chunks to delete: ${siblings}\n\n` +
+        `This will permanently delete the file from disk and remove all ${siblings} chunk(s) from the database.\n\n` +
+        `This cannot be undone.`
+      )) return;
+
+      try {
+        const resp = await this.apiFetch(`/api/chunks/${id}?delete_source=true`, { method: 'DELETE' });
+        const data = await resp.json();
+        // Remove all chunks with this path from local state
+        this.chunks = this.chunks.filter(c => c.path !== path);
+        this.expandedChunk = null;
+        this.expandedText = '';
+        this.editingChunk = null;
+        this.selectedChunks = this.selectedChunks.filter(sid => !this.chunks.find(c => c.id === sid && c.path === path));
         await this.loadStats();
       } catch (e) {
         alert('Delete failed: ' + e.message);

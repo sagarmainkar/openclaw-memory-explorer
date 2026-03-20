@@ -111,10 +111,35 @@ async def get_chunk(chunk_id: str):
 
 
 @app.delete("/api/chunks/{chunk_id}")
-async def delete_chunk(chunk_id: str):
+async def delete_chunk(chunk_id: str, delete_source: bool = False):
     try:
+        # Get chunk info before deleting (need path for source file deletion)
+        chunk = db.get_chunk(chunk_id) if delete_source else None
         deleted = db.delete_chunk(chunk_id)
-        return {"deleted": deleted}
+
+        source_deleted = False
+        if deleted and delete_source and chunk:
+            # Delete all other chunks from the same source file
+            all_chunks = db.list_chunks()
+            sibling_ids = [c["id"] for c in all_chunks if c["path"] == chunk["path"] and c["id"] != chunk_id]
+            for sid in sibling_ids:
+                db.delete_chunk(sid)
+
+            # Delete the source file on disk
+            workspace_dir = os.environ.get("WORKSPACE_DIR", "/home/ubuntu/.openclaw/workspace")
+            source_path = os.path.join(workspace_dir, chunk["path"])
+            if os.path.exists(source_path):
+                os.remove(source_path)
+                source_deleted = True
+
+            # Also remove from files table
+            try:
+                db.conn.execute("DELETE FROM files WHERE path = ?", (chunk["path"],))
+                db.conn.commit()
+            except Exception:
+                pass
+
+        return {"deleted": deleted, "source_deleted": source_deleted, "siblings_deleted": len(sibling_ids) if delete_source and chunk else 0}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
