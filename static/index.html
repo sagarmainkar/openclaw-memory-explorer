@@ -21,6 +21,23 @@
   </script>
   <style>
     [x-cloak] { display: none !important; }
+    .col-resize-handle {
+      position: absolute;
+      right: 0;
+      top: 0;
+      bottom: 0;
+      width: 4px;
+      cursor: col-resize;
+      background: transparent;
+      z-index: 20;
+    }
+    .col-resize-handle:hover,
+    .col-resize-handle.dragging {
+      background: #3b82f6;
+    }
+    th.resizable {
+      position: relative;
+    }
   </style>
 </head>
 <body class="bg-gray-900 text-gray-100 min-h-screen">
@@ -91,19 +108,21 @@
     <div class="overflow-hidden rounded-lg border border-gray-700">
       <!-- Sticky header + scrollable body -->
       <div class="overflow-y-auto" style="max-height: calc(100vh - 220px);">
-      <table class="w-full border-collapse text-sm table-fixed">
+      <table class="w-full border-collapse text-sm">
         <thead class="sticky top-0 bg-gray-800 z-10">
           <tr class="border-b border-gray-700 text-left">
-            <template x-for="col in [{key:'path',label:'Path',w:'w-[160px]'},{key:'lines',label:'Lines',w:'w-[70px]'},{key:'preview',label:'Preview',w:''},{key:'char_count',label:'Size',w:'w-[60px]'},{key:'updated_at',label:'Updated',w:'w-[80px]'}]" :key="col.key">
-              <th class="px-3 py-2 text-gray-400 font-medium cursor-pointer select-none hover:text-gray-200"
-                  :class="col.w"
+            <th class="px-2 py-2 bg-gray-800" style="width: 32px;"></th>
+            <template x-for="(col, ci) in colDefs" :key="col.key">
+              <th class="px-3 py-2 text-gray-400 font-medium cursor-pointer select-none hover:text-gray-200 resizable bg-gray-800"
+                  :style="'width:' + colWidths[ci] + 'px; min-width: 40px;'"
                   @click="toggleSort(col.key)">
                 <span x-text="col.label"></span>
                 <span x-show="sortCol === col.key && sortDir === 'asc'" class="ml-1">&#9650;</span>
                 <span x-show="sortCol === col.key && sortDir === 'desc'" class="ml-1">&#9660;</span>
+                <div class="col-resize-handle" @mousedown.stop.prevent="startColResize($event, ci)"></div>
               </th>
             </template>
-            <th class="px-3 py-2 w-[40px]"></th>
+            <th class="px-3 py-2 bg-gray-800" style="width: 40px;"></th>
           </tr>
         </thead>
         <tbody>
@@ -113,17 +132,17 @@
               <td colspan="6" class="p-0">
                 <div class="flex items-center border-b border-gray-700 hover:bg-gray-800 cursor-pointer transition-colors"
                      @click="toggleExpand(chunk.id)">
-                  <div class="px-2 py-2 w-[32px] shrink-0 text-center" @click.stop>
+                  <div class="px-2 py-2 shrink-0 text-center" style="width:32px;" @click.stop>
                     <input type="checkbox" :value="chunk.id"
                       x-model="selectedChunks"
                       class="rounded border-gray-600 bg-gray-700 text-blue-500 focus:ring-blue-500 cursor-pointer" />
                   </div>
-                  <div class="px-3 py-2 w-[160px] shrink-0 text-blue-400 truncate" x-text="chunk.path"></div>
-                  <div class="px-3 py-2 w-[70px] shrink-0 text-gray-400 whitespace-nowrap" x-text="chunk.start_line + '-' + chunk.end_line"></div>
-                  <div class="px-3 py-2 flex-1 min-w-0 text-gray-300 truncate" x-text="chunk.preview.substring(0, 120)"></div>
-                  <div class="px-3 py-2 w-[60px] shrink-0 text-gray-400 text-right whitespace-nowrap" x-text="chunk.char_count + 'c'"></div>
-                  <div class="px-3 py-2 w-[80px] shrink-0 text-gray-500 text-right whitespace-nowrap" x-text="relativeTime(chunk.updated_at)"></div>
-                  <div class="px-3 py-2 w-[40px] shrink-0 text-center">
+                  <div class="px-3 py-2 shrink-0 text-blue-400 truncate" :style="'width:' + colWidths[0] + 'px'" x-text="chunk.path"></div>
+                  <div class="px-3 py-2 shrink-0 text-gray-400 whitespace-nowrap" :style="'width:' + colWidths[1] + 'px'" x-text="chunk.start_line + '-' + chunk.end_line"></div>
+                  <div class="px-3 py-2 shrink-0 text-gray-300 truncate overflow-hidden" :style="'width:' + colWidths[2] + 'px'" x-text="chunk.preview.substring(0, 200)"></div>
+                  <div class="px-3 py-2 shrink-0 text-gray-400 text-right whitespace-nowrap" :style="'width:' + colWidths[3] + 'px'" x-text="chunk.char_count + 'c'"></div>
+                  <div class="px-3 py-2 shrink-0 text-gray-500 text-right whitespace-nowrap" :style="'width:' + colWidths[4] + 'px'" x-text="relativeTime(chunk.updated_at)"></div>
+                  <div class="px-3 py-2 shrink-0 text-center" style="width:40px;">
                     <button @click.stop="deleteChunk(chunk.id)"
                       class="text-gray-500 hover:text-red-400 transition-colors" title="Delete chunk">
                       <svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -459,6 +478,15 @@ function memoryExplorer() {
     expandedChunk: null,
     expandedText: '',
     expandedLoading: false,
+    colDefs: [
+      {key:'path', label:'Path'},
+      {key:'lines', label:'Lines'},
+      {key:'preview', label:'Preview'},
+      {key:'char_count', label:'Size'},
+      {key:'updated_at', label:'Updated'},
+    ],
+    colWidths: [160, 70, 500, 60, 100],
+    _resizing: null,
     sortCol: 'updated_at',
     sortDir: 'desc',
 
@@ -504,6 +532,29 @@ function memoryExplorer() {
     async init() {
       await this.loadStats();
       await this.loadChunks();
+      // Column resize listeners (bound once)
+      this._onColResizeMove = (e) => this.colResizeMove(e);
+      this._onColResizeEnd = () => this.colResizeEnd();
+      document.addEventListener('mousemove', this._onColResizeMove);
+      document.addEventListener('mouseup', this._onColResizeEnd);
+    },
+
+    startColResize(e, colIndex) {
+      this._resizing = { colIndex, startX: e.clientX, startWidth: this.colWidths[colIndex] };
+      e.target.classList.add('dragging');
+    },
+
+    colResizeMove(e) {
+      if (!this._resizing) return;
+      const diff = e.clientX - this._resizing.startX;
+      const newWidth = Math.max(40, this._resizing.startWidth + diff);
+      this.colWidths[this._resizing.colIndex] = newWidth;
+    },
+
+    colResizeEnd() {
+      if (!this._resizing) return;
+      document.querySelectorAll('.col-resize-handle.dragging').forEach(el => el.classList.remove('dragging'));
+      this._resizing = null;
     },
 
     // --- API helpers ---
