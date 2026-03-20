@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" fill="none">
+  <!-- Body -->
+  <ellipse cx="100" cy="110" rx="45" ry="55" fill="#DC2626" opacity="0.9"/>
+  <ellipse cx="100" cy="108" rx="40" ry="50" fill="#EF4444"/>
+  <!-- Head -->
+  <ellipse cx="100" cy="65" rx="30" ry="22" fill="#EF4444"/>
+  <ellipse cx="100" cy="63" rx="27" ry="19" fill="#F87171"/>
+  <!-- Eyes -->
+  <circle cx="87" cy="56" r="6" fill="white"/>
+  <circle cx="113" cy="56" r="6" fill="white"/>
+  <circle cx="88" cy="55" r="3.5" fill="#1E293B"/>
+  <circle cx="114" cy="55" r="3.5" fill="#1E293B"/>
+  <circle cx="89" cy="54" r="1.2" fill="white"/>
+  <circle cx="115" cy="54" r="1.2" fill="white"/>
+  <!-- Antennae -->
+  <path d="M85 48 Q70 20 55 10" stroke="#EF4444" stroke-width="3" stroke-linecap="round" fill="none"/>
+  <path d="M115 48 Q130 20 145 10" stroke="#EF4444" stroke-width="3" stroke-linecap="round" fill="none"/>
+  <circle cx="55" cy="10" r="3" fill="#F87171"/>
+  <circle cx="145" cy="10" r="3" fill="#F87171"/>
+  <!-- Mouth / smile -->
+  <path d="M92 70 Q100 77 108 70" stroke="#991B1B" stroke-width="2" stroke-linecap="round" fill="none"/>
+  <!-- Claws -->
+  <path d="M58 95 Q30 75 20 80 Q10 85 22 95 Q15 90 25 100 Q35 108 55 100" fill="#EF4444" stroke="#DC2626" stroke-width="1.5"/>
+  <path d="M142 95 Q170 75 180 80 Q190 85 178 95 Q185 90 175 100 Q165 108 145 100" fill="#EF4444" stroke="#DC2626" stroke-width="1.5"/>
+  <!-- Legs -->
+  <path d="M65 120 Q50 130 40 128" stroke="#EF4444" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+  <path d="M62 132 Q48 140 38 138" stroke="#EF4444" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+  <path d="M63 144 Q50 152 40 150" stroke="#EF4444" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+  <path d="M135 120 Q150 130 160 128" stroke="#EF4444" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+  <path d="M138 132 Q152 140 162 138" stroke="#EF4444" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+  <path d="M137 144 Q150 152 160 150" stroke="#EF4444" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+  <!-- Tail -->
+  <path d="M80 160 Q100 185 120 160" fill="#DC2626"/>
+  <path d="M85 160 Q100 180 115 160" fill="#EF4444"/>
+  <!-- Tail fan -->
+  <ellipse cx="100" cy="180" rx="18" ry="8" fill="#EF4444"/>
+  <ellipse cx="85" cy="178" rx="10" ry="6" fill="#DC2626" transform="rotate(-15 85 178)"/>
+  <ellipse cx="115" cy="178" rx="10" ry="6" fill="#DC2626" transform="rotate(15 115 178)"/>
+</svg>
