@@ -1,0 +1,15 @@
+services:
+  memory-explorer:
+    build: .
+    container_name: memory-explorer
+    ports:
+      - "12089:12089"
+    volumes:
+      - /home/ubuntu/.openclaw/memory:/data/memory
+      - /home/ubuntu/.openclaw/memory/vec0.so:/data/vec0.so:ro
+    environment:
+      - DB_PATH=/data/memory/main.sqlite
+      - VEC_PATH=/data/vec0.so
+      - DATA_DIR=/data
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+    restart: unless-stopped
