@@ -267,6 +267,7 @@ def image_to_text(image_bytes: bytes) -> str:
 async def upload_file(
     file: UploadFile = File(...),
     path_prefix: str = Form(None),
+    tag: str = Form(None),
 ):
     try:
         file_bytes = await file.read()
@@ -288,16 +289,21 @@ async def upload_file(
 
         chunks = chunk_text(text, path)
 
-        # Add part labels so the agent knows chunks are related
+        # Build prefix: tag + part label
+        tag_line = f"{tag.strip()}\n" if tag and tag.strip() else ""
         total_parts = len(chunks)
-        if total_parts > 1:
-            for i, c in enumerate(chunks):
+        for i, c in enumerate(chunks):
+            prefix = tag_line
+            if total_parts > 1:
                 if i == total_parts - 1:
-                    label = f"[Final part of {total_parts} from: {path}]\n"
+                    prefix += f"[Final part of {total_parts} from: {path}]\n"
                 else:
-                    label = f"[Part {i + 1} of {total_parts} from: {path}]\n"
-                labeled = label + c["text"]
-                # Trim from end if label pushes over limit
+                    prefix += f"[Part {i + 1} of {total_parts} from: {path}]\n"
+            elif tag_line:
+                # Single chunk with tag — just the tag, no part label
+                pass
+            if prefix:
+                labeled = prefix + c["text"]
                 if len(labeled) > MAX_CHUNK_CHARS:
                     labeled = labeled[:MAX_CHUNK_CHARS]
                 c["text"] = labeled

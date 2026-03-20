@@ -60,7 +60,23 @@
   <div x-show="tab === 'browse'">
     <div class="flex items-center justify-between mb-4">
       <p class="text-gray-400 text-sm">Total: <span class="text-gray-200" x-text="chunks.length"></span> chunks</p>
-      <button @click="loadChunks()" class="text-blue-400 hover:text-blue-300 text-sm">Refresh</button>
+      <div class="flex items-center gap-3">
+        <!-- Bulk tag controls -->
+        <template x-if="selectedChunks.length > 0">
+          <div class="flex items-center gap-2">
+            <span class="text-blue-400 text-xs" x-text="selectedChunks.length + ' selected'"></span>
+            <input type="text" x-model="bulkTag" placeholder="Tag to prepend..."
+              class="bg-gray-700 border border-gray-600 text-gray-100 rounded px-2 py-1 focus:border-blue-500 focus:outline-none text-xs w-48" />
+            <button @click="applyBulkTag()" :disabled="!bulkTag.trim() || bulkTagging"
+              class="bg-blue-600 hover:bg-blue-700 text-white rounded px-3 py-1 text-xs disabled:opacity-50">
+              <span x-show="!bulkTagging">Apply Tag</span>
+              <span x-show="bulkTagging" x-text="'Tagging ' + bulkTagProgress + '/' + selectedChunks.length + '...'"></span>
+            </button>
+            <button @click="selectedChunks = []" class="text-gray-400 hover:text-gray-200 text-xs">Clear</button>
+          </div>
+        </template>
+        <button @click="loadChunks()" class="text-blue-400 hover:text-blue-300 text-sm">Refresh</button>
+      </div>
     </div>
 
     <div class="overflow-hidden rounded-lg border border-gray-700">
@@ -88,6 +104,11 @@
               <td colspan="6" class="p-0">
                 <div class="flex items-center border-b border-gray-700 hover:bg-gray-800 cursor-pointer transition-colors"
                      @click="toggleExpand(chunk.id)">
+                  <div class="px-2 py-2 w-[32px] shrink-0 text-center" @click.stop>
+                    <input type="checkbox" :value="chunk.id"
+                      x-model="selectedChunks"
+                      class="rounded border-gray-600 bg-gray-700 text-blue-500 focus:ring-blue-500 cursor-pointer" />
+                  </div>
                   <div class="px-3 py-2 w-[160px] shrink-0 text-blue-400 truncate" x-text="chunk.path"></div>
                   <div class="px-3 py-2 w-[70px] shrink-0 text-gray-400 whitespace-nowrap" x-text="chunk.start_line + '-' + chunk.end_line"></div>
                   <div class="px-3 py-2 flex-1 min-w-0 text-gray-300 truncate" x-text="chunk.preview.substring(0, 120)"></div>
@@ -304,6 +325,12 @@
             class="w-full bg-gray-700 border border-gray-600 text-gray-100 rounded px-3 py-2 focus:border-blue-500 focus:outline-none text-sm max-w-md" />
         </div>
 
+        <div>
+          <label class="block text-gray-400 text-sm mb-1">Tag (prepended to all chunks, optional)</label>
+          <input type="text" x-model="uploadTag" placeholder="e.g. [Sikkim Trip April 2026]"
+            class="w-full bg-gray-700 border border-gray-600 text-gray-100 rounded px-3 py-2 focus:border-blue-500 focus:outline-none text-sm max-w-md" />
+        </div>
+
         <button @click="uploadFile()" :disabled="uploading"
           class="bg-blue-600 hover:bg-blue-700 text-white rounded px-4 py-2 text-sm disabled:opacity-50">
           <span x-show="!uploading">Upload &amp; Preview</span>
@@ -422,6 +449,12 @@ function memoryExplorer() {
     sortCol: 'updated_at',
     sortDir: 'desc',
 
+    // Bulk tag
+    selectedChunks: [],
+    bulkTag: '',
+    bulkTagging: false,
+    bulkTagProgress: 0,
+
     // Edit
     editingChunk: null,
     editText: '',
@@ -450,6 +483,7 @@ function memoryExplorer() {
     uploadFullChunks: [],
     uploadPath: '',
     uploadPathPrefix: '',
+    uploadTag: '',
     uploading: false,
     uploadError: '',
     uploadProgress: { current: 0, total: 0, status: '', rateLimit: null, rateLimited: false, rateLimitedMsg: '', doneMsg: '' },
@@ -624,6 +658,40 @@ function memoryExplorer() {
       }
     },
 
+    // --- Bulk Tag ---
+    async applyBulkTag() {
+      if (!this.bulkTag.trim() || this.selectedChunks.length === 0) return;
+      const tag = this.bulkTag.trim();
+      this.bulkTagging = true;
+      this.bulkTagProgress = 0;
+      const ids = [...this.selectedChunks];
+      for (const id of ids) {
+        this.bulkTagProgress++;
+        try {
+          // Fetch full chunk
+          const resp = await this.apiFetch(`/api/chunks/${id}`);
+          const chunk = await resp.json();
+          // Prepend tag if not already there
+          if (chunk.text.startsWith(tag)) continue;
+          let newText = tag + '\n' + chunk.text;
+          if (newText.length > 1600) newText = newText.substring(0, 1600);
+          // Update via PUT (re-embeds)
+          await this.apiFetch(`/api/chunks/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text: newText }),
+          });
+        } catch (e) {
+          console.error(`Failed to tag chunk ${id}:`, e);
+        }
+      }
+      this.bulkTagging = false;
+      this.bulkTag = '';
+      this.selectedChunks = [];
+      await this.loadChunks();
+      await this.loadStats();
+    },
+
     // --- Search ---
     async doSearch() {
       if (!this.searchQuery.trim()) return;
@@ -688,6 +756,9 @@ function memoryExplorer() {
         formData.append('file', fileInput.files[0]);
         if (this.uploadPathPrefix.trim()) {
           formData.append('path_prefix', this.uploadPathPrefix.trim());
+        }
+        if (this.uploadTag.trim()) {
+          formData.append('tag', this.uploadTag.trim());
         }
         const resp = await this.apiFetch('/api/upload', {
           method: 'POST',
