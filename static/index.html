@@ -13,7 +13,13 @@
           colors: {
             'gray-750': '#2d3748',
             'gray-850': '#1a202c',
-            'gray-950': '#0d1117',
+            'gray-950': 'var(--bg-code, #0d1117)',
+            // Override core grays with CSS variables
+            'surface': 'var(--bg-body, #111827)',
+            'card': 'var(--bg-card, #1f2937)',
+            'input': 'var(--bg-input, #374151)',
+            'accent': 'var(--accent, #3b82f6)',
+            'accent-h': 'var(--accent-hover, #2563eb)',
           }
         }
       }
@@ -68,29 +74,55 @@
       background-color: var(--bg-body) !important;
       color: var(--text-primary) !important;
     }
-    body.themed .t-card { background-color: var(--bg-card) !important; }
+    /* Override all Tailwind bg/border/text with theme variables */
+    body.themed .bg-gray-900, body.themed .bg-gray-850 { background-color: var(--bg-body) !important; }
+    body.themed .bg-gray-800 { background-color: var(--bg-card) !important; }
+    body.themed .bg-gray-700 { background-color: var(--bg-input) !important; }
+    body.themed .bg-gray-950 { background-color: var(--bg-code) !important; }
+    body.themed .border-gray-700, body.themed .border-gray-600 { border-color: var(--border) !important; }
+    body.themed .text-gray-100, body.themed .text-white { color: var(--text-primary) !important; }
+    body.themed .text-gray-200, body.themed .text-gray-300 { color: var(--text-primary) !important; }
+    body.themed .text-gray-400 { color: var(--text-secondary) !important; }
+    body.themed .text-gray-500 { color: var(--text-muted) !important; }
+    body.themed .text-blue-400 { color: var(--accent) !important; }
+    body.themed .bg-blue-600 { background-color: var(--accent) !important; }
+    body.themed .bg-blue-600:hover, body.themed .hover\:bg-blue-700:hover { background-color: var(--accent-hover) !important; }
+    body.themed .border-blue-500, body.themed .focus\:border-blue-500:focus { border-color: var(--accent) !important; }
+    body.themed .bg-black\/60 { background-color: rgba(0,0,0,0.6) !important; }
+    /* Explicit theme helpers */
     body.themed .t-input { background-color: var(--bg-input) !important; border-color: var(--border) !important; color: var(--text-primary) !important; }
-    body.themed .t-code { background-color: var(--bg-code) !important; color: var(--text-primary) !important; }
-    body.themed .t-border { border-color: var(--border) !important; }
-    body.themed .t-text { color: var(--text-primary) !important; }
-    body.themed .t-muted { color: var(--text-secondary) !important; }
-    body.themed .t-dim { color: var(--text-muted) !important; }
-    body.themed .t-accent { color: var(--accent) !important; }
     body.themed .t-btn { background-color: var(--accent) !important; }
     body.themed .t-btn:hover { background-color: var(--accent-hover) !important; }
+    body.themed .t-muted { color: var(--text-secondary) !important; }
+    body.themed .t-text { color: var(--text-primary) !important; }
   </style>
 </head>
-<body class="bg-gray-900 text-gray-100 min-h-screen themed" :class="theme ? 'theme-' + theme : ''">
+<body class="bg-gray-900 text-gray-100 min-h-screen themed">
 
-<div x-data="memoryExplorer()" x-init="init()" x-cloak class="max-w-7xl mx-auto px-4 py-6">
+<div x-data="memoryExplorer()" x-init="init()" x-cloak
+     x-effect="document.body.className = 'min-h-screen themed' + (theme ? ' theme-' + theme : '')"
+     class="max-w-7xl mx-auto px-4 py-6">
 
   <!-- Header -->
   <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
     <h1 class="text-2xl font-bold t-text">Memory Explorer</h1>
     <div class="flex items-center gap-3 flex-wrap">
-      <span class="t-muted text-xs font-mono" x-text="dbDisplayPath || dbPath" title="Database path on host"></span>
+      <div class="flex items-center gap-1">
+        <select x-model="dbPath" @change="connectDb()"
+          class="t-input rounded px-2 py-1.5 text-xs focus:outline-none cursor-pointer max-w-[300px]">
+          <option :value="dbPath" x-text="dbDisplayPath || dbPath" selected></option>
+          <template x-for="f in availableFiles.filter(f => f !== dbPath)" :key="f">
+            <option :value="f" x-text="f"></option>
+          </template>
+        </select>
+        <button @click="loadAvailableFiles()" class="t-muted hover:text-white text-xs px-1" title="Refresh file list">
+          <svg class="w-3.5 h-3.5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+          </svg>
+        </button>
+      </div>
       <span class="t-muted text-sm" x-show="stats.total_chunks !== undefined">
-        &middot; <span class="t-text" x-text="stats.total_chunks"></span> chunks,
+        <span class="t-text" x-text="stats.total_chunks"></span> chunks,
         <span class="t-text" x-text="stats.total_files"></span> files
       </span>
       <!-- Theme selector -->
@@ -567,6 +599,7 @@ function memoryExplorer() {
     stats: {},
     dbPath: '',
     dbDisplayPath: '',
+    availableFiles: [],
     connectError: '',
 
     // Browse
@@ -631,11 +664,22 @@ function memoryExplorer() {
     async init() {
       await this.loadStats();
       await this.loadChunks();
+      await this.loadAvailableFiles();
       // Column resize listeners (bound once)
       this._onColResizeMove = (e) => this.colResizeMove(e);
       this._onColResizeEnd = () => this.colResizeEnd();
       document.addEventListener('mousemove', this._onColResizeMove);
       document.addEventListener('mouseup', this._onColResizeEnd);
+    },
+
+    async loadAvailableFiles() {
+      try {
+        const resp = await this.apiFetch('/api/files');
+        const data = await resp.json();
+        this.availableFiles = data.files || [];
+      } catch (e) {
+        console.error('Failed to load files:', e);
+      }
     },
 
     startColResize(e, colIndex) {
