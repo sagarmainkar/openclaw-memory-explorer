@@ -219,7 +219,10 @@
                       x-model="selectedChunks"
                       class="rounded border-gray-600 bg-gray-700 text-blue-500 focus:ring-blue-500 cursor-pointer" />
                   </div>
-                  <div class="px-3 py-2 shrink-0 text-blue-400 truncate" :style="'width:' + colWidths[0] + 'px'" x-text="chunk.path"></div>
+                  <div class="px-3 py-2 shrink-0 truncate" :style="'width:' + colWidths[0] + 'px'">
+                    <a href="#" @click.stop.prevent="openSourceModal(chunk.path)"
+                      class="text-blue-400 hover:text-blue-300 hover:underline" x-text="chunk.path"></a>
+                  </div>
                   <div class="px-3 py-2 shrink-0 text-gray-400 whitespace-nowrap" :style="'width:' + colWidths[1] + 'px'" x-text="chunk.start_line + '-' + chunk.end_line"></div>
                   <div class="px-3 py-2 shrink-0 text-gray-300 truncate overflow-hidden" :style="'width:' + colWidths[2] + 'px'" x-text="chunk.preview.substring(0, 200)"></div>
                   <div class="px-3 py-2 shrink-0 text-gray-400 text-right whitespace-nowrap" :style="'width:' + colWidths[3] + 'px'" x-text="chunk.char_count + 'c'"></div>
@@ -588,6 +591,48 @@
     </div>
   </div>
 
+  <!-- ==================== SOURCE FILE MODAL ==================== -->
+  <div x-show="sourceModal" x-transition.opacity
+    class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+    @click.self="sourceModal = null" @keydown.escape.window="sourceModal = null">
+    <div class="bg-gray-800 border border-gray-600 rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col mx-4"
+         @click.stop>
+      <!-- Header -->
+      <div class="flex items-center justify-between px-5 py-4 border-b border-gray-700">
+        <div class="min-w-0">
+          <p class="text-blue-400 font-mono text-sm truncate" x-text="sourceModal?.path"></p>
+          <p class="text-gray-500 text-xs mt-0.5">
+            <span x-text="sourceModal?.host_path"></span>
+            &middot; <span x-text="sourceModal?.type === 'image' ? formatFileSize(sourceModal?.size) : (sourceModal?.size || 0) + ' chars'"></span>
+            &middot; <span x-text="(sourceModal?.chunk_count || 0) + ' chunks'"></span>
+          </p>
+        </div>
+        <button @click="sourceModal = null" class="text-gray-400 hover:text-white ml-4 shrink-0">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+      <!-- Body -->
+      <div class="flex-1 overflow-y-auto px-5 py-4">
+        <div x-show="sourceLoading" class="text-gray-400 text-sm py-8 text-center">Loading source file...</div>
+        <div x-show="!sourceLoading && sourceModal?.type === 'text'">
+          <pre class="font-mono bg-gray-950 p-4 rounded text-sm text-gray-200 whitespace-pre-wrap break-words"
+            x-text="sourceModal?.content"></pre>
+        </div>
+        <div x-show="!sourceLoading && sourceModal?.type === 'image'" class="flex justify-center">
+          <img :src="'data:image/' + (sourceModal?.ext || 'png').replace('.','') + ';base64,' + (sourceModal?.content || '')"
+            class="max-w-full rounded-lg shadow-lg" />
+        </div>
+        <div x-show="!sourceLoading && sourceModal?.error" class="text-red-400 text-sm" x-text="sourceModal?.error"></div>
+      </div>
+      <!-- Footer -->
+      <div class="flex items-center justify-end px-5 py-3 border-t border-gray-700">
+        <button @click="sourceModal = null" class="text-gray-400 hover:text-gray-200 text-xs px-3 py-1.5">Close</button>
+      </div>
+    </div>
+  </div>
+
 </div>
 
 <script>
@@ -625,8 +670,11 @@ function memoryExplorer() {
     bulkTagging: false,
     bulkTagProgress: 0,
 
-    // Modal
+    // Chunk modal
     modalChunk: null,
+    // Source file modal
+    sourceModal: null,
+    sourceLoading: false,
 
     // Edit
     editingChunk: null,
@@ -1191,6 +1239,20 @@ function memoryExplorer() {
       }
     },
 
+    // --- Source modal ---
+    async openSourceModal(path) {
+      this.sourceModal = { path };
+      this.sourceLoading = true;
+      try {
+        const resp = await this.apiFetch(`/api/source?path=${encodeURIComponent(path)}`);
+        this.sourceModal = await resp.json();
+      } catch (e) {
+        this.sourceModal = { path, error: e.message };
+      } finally {
+        this.sourceLoading = false;
+      }
+    },
+
     // --- Utilities ---
     relativeTime(isoStr) {
       if (!isoStr) return '';
@@ -1212,6 +1274,13 @@ function memoryExplorer() {
       if (n === undefined || n === null) return '0';
       if (n >= 1000) return (n / 1000).toFixed(1).replace(/\.0$/, '') + 'K';
       return String(n);
+    },
+
+    formatFileSize(bytes) {
+      if (!bytes) return '0 B';
+      if (bytes < 1024) return bytes + ' B';
+      if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+      return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
     },
   };
 }

@@ -445,6 +445,43 @@ async def rate_limit():
     return embedder.status()
 
 
+@app.get("/api/source")
+async def get_source(path: str = ""):
+    """Read a source file from the workspace directory."""
+    if not path.strip():
+        raise HTTPException(status_code=400, detail="'path' parameter is required")
+    workspace_dir = os.environ.get("WORKSPACE_DIR", "/home/ubuntu/.openclaw/workspace")
+    file_path = os.path.join(workspace_dir, path)
+    # Security: prevent path traversal
+    real_path = os.path.realpath(file_path)
+    real_workspace = os.path.realpath(workspace_dir)
+    if not real_path.startswith(real_workspace):
+        raise HTTPException(status_code=403, detail="Access denied")
+    if not os.path.exists(real_path):
+        raise HTTPException(status_code=404, detail=f"File not found: {path}")
+    # Get all chunks for this path
+    all_chunks = db.list_chunks()
+    chunk_count = sum(1 for c in all_chunks if c["path"] == path)
+    try:
+        ext = os.path.splitext(real_path)[1].lower()
+        if ext in (".png", ".jpg", ".jpeg", ".gif", ".webp"):
+            # Return base64 for images
+            with open(real_path, "rb") as f:
+                import base64 as b64mod
+                data = b64mod.b64encode(f.read()).decode("utf-8")
+            return {"path": path, "type": "image", "content": data, "ext": ext,
+                    "host_path": to_host_path(os.path.join(workspace_dir, path)),
+                    "size": os.path.getsize(real_path), "chunk_count": chunk_count}
+        else:
+            with open(real_path, "r", encoding="utf-8", errors="replace") as f:
+                content = f.read()
+            return {"path": path, "type": "text", "content": content,
+                    "host_path": to_host_path(os.path.join(workspace_dir, path)),
+                    "size": len(content), "chunk_count": chunk_count}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.get("/api/files")
 async def list_files():
     files = []
